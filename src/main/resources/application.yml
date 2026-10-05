@@ -38,7 +38,25 @@ spring:
             - id: booking-service
               uri: ${ROUTE_BOOKING_URL:http://localhost:3003}
               predicates:
-                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/operator/**
+                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/operator/bookings/**,/api/v1/operator/bookings
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: operations-service
+              uri: ${ROUTE_OPERATIONS_URL:http://localhost:3004}
+              predicates:
+                - Path=/api/v1/admin/operators/**,/api/v1/admin/operators,/api/v1/admin/assignments/**,/api/v1/admin/assignments,/api/v1/operator/services/**,/api/v1/operator/services,/api/v1/operator/ratings,/api/v1/ratings/**
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: payment-service
+              uri: ${ROUTE_PAYMENT_URL:http://localhost:3005}
+              predicates:
+                - Path=/api/v1/payments/**,/api/v1/payments,/api/v1/payment-accounts,/api/v1/admin/payments/**,/api/v1/admin/payments,/api/v1/admin/payment-accounts/**,/api/v1/admin/payment-accounts,/api/v1/admin/payment-methods
               filters:
                 - RemoveResponseHeader=Access-Control-Allow-Origin
                 - RemoveResponseHeader=Access-Control-Allow-Credentials

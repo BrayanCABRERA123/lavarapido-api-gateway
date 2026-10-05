@@ -41,7 +41,7 @@ class GatewayRoutesTest {
 
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) throws IOException {
-        for (String service : List.of("security", "customer", "booking", "notification")) {
+        for (String service : List.of("security", "customer", "booking", "notification", "payment", "operations")) {
             HttpServer server = fakeService(service);
             SERVERS.put(service, server);
             registry.add("ROUTE_" + service.toUpperCase() + "_URL",
@@ -97,7 +97,14 @@ class GatewayRoutesTest {
             "/api/v1/admin/bays/1, booking",
             "/api/v1/operator/bookings, booking",
             "/api/v1/notifications/unread-count, notification",
-            "/api/v1/admin/notifications, notification"
+            "/api/v1/admin/notifications, notification",
+            "/api/v1/payments/me, payment",
+            "/api/v1/payment-accounts, payment",
+            "/api/v1/admin/payments, payment",
+            "/api/v1/admin/operators, operations",
+            "/api/v1/operator/services, operations",
+            "/api/v1/operator/bookings/5, booking",
+            "/api/v1/ratings/me, operations"
     })
     void routesEachPathToItsService(String path, String service) throws Exception {
         HttpResponse<String> response = get(path);
