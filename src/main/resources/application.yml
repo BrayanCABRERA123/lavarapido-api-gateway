@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: api-gateway
+  # Las URLs de los servicios pueden ir en lavarapido-infra/.env; las variables de entorno mandan.
+  config:
+    import:
+      - optional:file:../lavarapido-infra/.env[.properties]
+      - optional:file:.env[.properties]
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          # Solo se enrutan rutas públicas de la API (/api/v1/**). /internal/** (llamadas entre
+          # servicios, ADR-011 sección 8) no tiene ruta aquí: desde afuera responde 404.
+          # El JWT lo valida cada servicio (ADR-006): el gateway reenvía los encabezados tal cual
+          # (Authorization, X-Correlation-Id...). El CORS lo responde el gateway (CorsConfig), por eso
+          # cada ruta quita los encabezados CORS del servicio para no duplicarlos.
+          routes:
+            - id: security-service
+              uri: ${ROUTE_SECURITY_URL:http://localhost:3001}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/users/**,/api/v1/admin/users
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: customer-service
+              uri: ${ROUTE_CUSTOMER_URL:http://localhost:3002}
+              predicates:
+                - Path=/api/v1/vehicles/**,/api/v1/vehicles,/api/v1/vehicle-types/**,/api/v1/vehicle-types,/api/v1/admin/vehicles/**,/api/v1/admin/vehicles
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: booking-service
+              uri: ${ROUTE_BOOKING_URL:http://localhost:3003}
+              predicates:
+                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/operator/**
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: notification-service
+              uri: ${ROUTE_NOTIFICATION_URL:http://localhost:3006}
+              predicates:
+                - Path=/api/v1/notifications/**,/api/v1/notifications,/api/v1/admin/notifications/**,/api/v1/admin/notifications
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+app:
+  cors:
+    # mismos orígenes que los servicios
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+server:
+  port: ${GATEWAY_PORT:8080}
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  service: api-gateway
