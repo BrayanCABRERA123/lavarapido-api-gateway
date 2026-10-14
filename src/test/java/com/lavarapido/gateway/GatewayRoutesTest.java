@@ -105,6 +105,7 @@ class GatewayRoutesTest {
             "/api/v1/admin/operators, operations",
             "/api/v1/admin/inspections/50/photos/3, operations",
             "/api/v1/public/inspections/abc123, operations",
+            "/api/v1/operators/available, operations",
             "/api/v1/operator/services, operations",
             "/api/v1/operator/bookings/5, booking",
             "/api/v1/ratings/me, operations"
