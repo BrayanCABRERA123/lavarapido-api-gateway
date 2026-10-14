@@ -95,6 +95,7 @@ class GatewayRoutesTest {
             "/api/v1/bookings/me, booking",
             "/api/v1/admin/bookings, booking",
             "/api/v1/admin/bays/1, booking",
+            "/api/v1/admin/establishment, booking",
             "/api/v1/operator/bookings, booking",
             "/api/v1/notifications/unread-count, notification",
             "/api/v1/admin/notifications, notification",
