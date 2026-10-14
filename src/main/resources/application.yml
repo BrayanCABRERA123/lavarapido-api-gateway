@@ -47,7 +47,7 @@ spring:
             - id: operations-service
               uri: ${ROUTE_OPERATIONS_URL:http://localhost:3004}
               predicates:
-                - Path=/api/v1/admin/operators/**,/api/v1/admin/operators,/api/v1/admin/inspections/**,/api/v1/public/inspections/**,/api/v1/admin/assignments/**,/api/v1/admin/assignments,/api/v1/operator/services/**,/api/v1/operator/services,/api/v1/operator/ratings,/api/v1/ratings/**
+                - Path=/api/v1/admin/operators/**,/api/v1/admin/operators,/api/v1/operators/**,/api/v1/admin/inspections/**,/api/v1/public/inspections/**,/api/v1/admin/assignments/**,/api/v1/admin/assignments,/api/v1/operator/services/**,/api/v1/operator/services,/api/v1/operator/ratings,/api/v1/ratings/**
               filters:
                 - RemoveResponseHeader=Access-Control-Allow-Origin
                 - RemoveResponseHeader=Access-Control-Allow-Credentials
