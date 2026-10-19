@@ -1,4 +1,9 @@
 spring:
+  # respuestas de error sin mensajes internos ni trazas (en Spring Boot 4 reemplaza a server.error.*)
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
   application:
     name: api-gateway
   # Las URLs de los servicios pueden ir en lavarapido-infra/.env; las variables de entorno mandan.
@@ -79,9 +84,6 @@ app:
 server:
   port: ${GATEWAY_PORT:8080}
   shutdown: graceful
-  error:
-    include-message: never
-    include-stacktrace: never
 
 management:
   endpoints:
