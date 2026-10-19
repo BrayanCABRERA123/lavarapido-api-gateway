@@ -1,0 +1,45 @@
+# Compila y corre las pruebas en cada push o pull request a develop/main.
+# No necesita base de datos: las pruebas usan dobles y contextos web sin SQL Server.
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compilar y probar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # en Windows el wrapper se sube sin permiso de ejecución
+      - run: chmod +x mvnw
+
+      - name: Pruebas
+        run: ./mvnw -B -ntp verify
+
+      - name: Reportes de pruebas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 7
