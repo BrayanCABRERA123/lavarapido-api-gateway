@@ -112,6 +112,15 @@ class SessionCheckFilterTest {
     }
 
     @Test
+    void afterLogoutThroughTheGatewayTheTokenIsAskedAgainRightAway() throws Exception {
+        call("/api/v1/bookings", "abierta");
+        assertNotNull(call("/api/v1/auth/logout", "abierta").getRequest());
+        call("/api/v1/bookings", "abierta");
+
+        assertEquals(2, calls.get());
+    }
+
+    @Test
     void ifSecurityServiceFailsTheRequestGoesOn() throws Exception {
         assertNotNull(call("/api/v1/bookings", "caido").getRequest());
         security.stop(0);

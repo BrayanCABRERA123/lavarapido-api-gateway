@@ -41,6 +41,7 @@ class SessionCheckFilter extends OncePerRequestFilter {
     private static final String BEARER = "Bearer ";
     // login, logout y el propio chequeo los resuelve security-service
     private static final String AUTH_PATHS = "/api/v1/auth/";
+    private static final String LOGOUT_PATH = "/api/v1/auth/logout";
     private static final int MAX_CACHED_TOKENS = 10_000;
 
     private final URI sessionUri;
@@ -71,7 +72,7 @@ class SessionCheckFilter extends OncePerRequestFilter {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         return "OPTIONS".equals(request.getMethod())
                 || !path.startsWith("/api/")
-                || path.startsWith(AUTH_PATHS)
+                || (path.startsWith(AUTH_PATHS) && !path.equals(LOGOUT_PATH))
                 || authorization == null || !authorization.startsWith(BEARER);
     }
 
@@ -79,6 +80,12 @@ class SessionCheckFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (LOGOUT_PATH.equals(request.getRequestURI())) {
+            // el token deja de servir ya, no cuando venza lo guardado
+            cache.remove(sha256(authorization));
+            chain.doFilter(request, response);
+            return;
+        }
         Rejection closed = check(authorization, request.getHeader("X-Correlation-Id"));
         if (closed == null) {
             chain.doFilter(request, response);
