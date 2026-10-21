@@ -77,6 +77,13 @@ spring:
                 - RemoveResponseHeader=Access-Control-Expose-Headers
 
 app:
+  # Corta los tokens de sesiones cerradas (logout, cuenta inhabilitada o desactivada) preguntando a
+  # security-service; la respuesta se guarda cache-ttl por token, que es lo que puede tardar en
+  # notarse un cierre. Si security no contesta en timeout, la petición sigue (SessionCheckFilter).
+  session-check:
+    enabled: ${SESSION_CHECK_ENABLED:true}
+    cache-ttl: ${SESSION_CHECK_CACHE_TTL:30s}
+    timeout: ${SESSION_CHECK_TIMEOUT:3s}
   cors:
     # mismos orígenes que los servicios; 8081 es la app móvil corriendo en el navegador (Expo web)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081}
