@@ -96,7 +96,6 @@ class GatewayRoutesTest {
             "/api/v1/admin/bookings, booking",
             "/api/v1/admin/bays/1, booking",
             "/api/v1/admin/establishment, booking",
-            "/api/v1/operator/bookings, booking",
             "/api/v1/notifications/unread-count, notification",
             "/api/v1/admin/notifications, notification",
             "/api/v1/payments/me, payment",
@@ -107,7 +106,6 @@ class GatewayRoutesTest {
             "/api/v1/public/inspections/abc123, operations",
             "/api/v1/operators/available, operations",
             "/api/v1/operator/services, operations",
-            "/api/v1/operator/bookings/5, booking",
             "/api/v1/ratings/me, operations"
     })
     void routesEachPathToItsService(String path, String service) throws Exception {
@@ -129,6 +127,13 @@ class GatewayRoutesTest {
     @Test
     void internalRoutesAreNotExposed() throws Exception {
         assertEquals(404, get("/internal/v1/users/1/contact").statusCode());
+    }
+
+    @Test
+    void operatorBookingRoutesAreNotExposed() throws Exception {
+        // E-01: solo operations-service las usa, por la red interna y con la llave interna
+        assertEquals(404, get("/api/v1/operator/bookings").statusCode());
+        assertEquals(404, get("/api/v1/operator/bookings/5").statusCode());
     }
 
     @Test

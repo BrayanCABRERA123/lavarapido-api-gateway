@@ -43,7 +43,7 @@ spring:
             - id: booking-service
               uri: ${ROUTE_BOOKING_URL:http://localhost:3003}
               predicates:
-                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/admin/establishment,/api/v1/operator/bookings/**,/api/v1/operator/bookings
+                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/admin/establishment
               filters:
                 - RemoveResponseHeader=Access-Control-Allow-Origin
                 - RemoveResponseHeader=Access-Control-Allow-Credentials
