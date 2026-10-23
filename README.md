@@ -64,7 +64,7 @@ En Docker (`docker compose --profile app up`) las URLs apuntan al nombre de cada
 ./mvnw test
 ```
 
-40 pruebas (21 de octubre). `GatewayRoutesTest` levanta un servidor falso por servicio y comprueba
+40 pruebas (23 de octubre de 2026, rama develop). `GatewayRoutesTest` levanta un servidor falso por servicio y comprueba
 que cada ruta llegue al correcto, que viajen el token y los parámetros, que `/internal/**` no esté
 expuesto y que el CORS salga una sola vez. `SessionCheckFilterTest` usa un security falso: una sesión
 abierta pasa, una cerrada recibe el 401 de security, la respuesta se guarda por token, el logout la
