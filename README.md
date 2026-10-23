@@ -20,6 +20,7 @@ Stack: Spring Boot 4 + Spring Cloud Gateway (variante webmvc) · Java 21.
   logout que pasa por aquí la borra al instante. Si security no contesta, la llamada sigue.
 - **No:** lógica de negocio ni validar la firma del JWT: cada servicio verifica su token (ADR-006).
 - **No expone** `/internal/**` (llamadas entre servicios, ADR-011 §8): desde afuera es 404.
+- **No expone** `/api/v1/operator/bookings/**` de booking-service: solo operations-service la usa, por la red interna y con la llave interna (E-01). El operario inicia y termina servicios en `/api/v1/operator/services/**`.
 
 ## Rutas
 
@@ -27,7 +28,7 @@ Stack: Spring Boot 4 + Spring Cloud Gateway (variante webmvc) · Java 21.
 |---|---|
 | `/api/v1/auth/**`, `/api/v1/users/**`, `/api/v1/admin/users/**`, `/api/v1/admin/roles-permissions/**` | security-service (3001) |
 | `/api/v1/vehicles/**`, `/api/v1/vehicle-types/**`, `/api/v1/admin/vehicles/**` | customer-service (3002) |
-| `/api/v1/catalog/**`, `/api/v1/schedule/**`, `/api/v1/establishment`, `/api/v1/bookings/**`, `/api/v1/admin/bookings/**`, `/api/v1/admin/catalog/**`, `/api/v1/admin/schedule/**`, `/api/v1/admin/bays/**`, `/api/v1/admin/establishment`, `/api/v1/operator/bookings/**` | booking-service (3003) |
+| `/api/v1/catalog/**`, `/api/v1/schedule/**`, `/api/v1/establishment`, `/api/v1/bookings/**`, `/api/v1/admin/bookings/**`, `/api/v1/admin/catalog/**`, `/api/v1/admin/schedule/**`, `/api/v1/admin/bays/**`, `/api/v1/admin/establishment` | booking-service (3003) |
 | `/api/v1/admin/operators/**`, `/api/v1/operators/**`, `/api/v1/admin/inspections/**`, `/api/v1/public/inspections/**`, `/api/v1/admin/assignments/**`, `/api/v1/operator/services/**`, `/api/v1/operator/ratings`, `/api/v1/ratings/**` | operations-service (3004) |
 | `/api/v1/payments/**`, `/api/v1/payment-accounts`, `/api/v1/admin/payments/**`, `/api/v1/admin/payment-accounts/**`, `/api/v1/admin/payment-methods`, `/api/v1/admin/promotions/**`, `/api/v1/loyalty/**` | payment-service (3005) |
 | `/api/v1/notifications/**`, `/api/v1/admin/notifications/**` | notification-service (3006) |
