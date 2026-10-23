@@ -1,0 +1,106 @@
+spring:
+  # respuestas de error sin mensajes internos ni trazas (en Spring Boot 4 reemplaza a server.error.*)
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
+  application:
+    name: api-gateway
+  # Las URLs de los servicios pueden ir en lavarapido-infra/.env; las variables de entorno mandan.
+  config:
+    import:
+      - optional:file:../lavarapido-infra/.env[.properties]
+      - optional:file:.env[.properties]
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          # Solo se enrutan rutas públicas de la API (/api/v1/**). /internal/** (llamadas entre
+          # servicios, ADR-011 sección 8) no tiene ruta aquí: desde afuera responde 404.
+          # El JWT lo valida cada servicio (ADR-006): el gateway reenvía los encabezados tal cual
+          # (Authorization, X-Correlation-Id...). El CORS lo responde el gateway (CorsConfig), por eso
+          # cada ruta quita los encabezados CORS del servicio para no duplicarlos.
+          routes:
+            - id: security-service
+              uri: ${ROUTE_SECURITY_URL:http://localhost:3001}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/users/**,/api/v1/admin/users,/api/v1/admin/roles-permissions/**,/api/v1/admin/roles-permissions
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: customer-service
+              uri: ${ROUTE_CUSTOMER_URL:http://localhost:3002}
+              predicates:
+                - Path=/api/v1/vehicles/**,/api/v1/vehicles,/api/v1/vehicle-types/**,/api/v1/vehicle-types,/api/v1/admin/vehicles/**,/api/v1/admin/vehicles
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: booking-service
+              uri: ${ROUTE_BOOKING_URL:http://localhost:3003}
+              predicates:
+                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/admin/establishment,/api/v1/operator/bookings/**,/api/v1/operator/bookings
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: operations-service
+              uri: ${ROUTE_OPERATIONS_URL:http://localhost:3004}
+              predicates:
+                - Path=/api/v1/admin/operators/**,/api/v1/admin/operators,/api/v1/operators/**,/api/v1/admin/inspections/**,/api/v1/public/inspections/**,/api/v1/admin/assignments/**,/api/v1/admin/assignments,/api/v1/operator/services/**,/api/v1/operator/services,/api/v1/operator/ratings,/api/v1/ratings/**
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: payment-service
+              uri: ${ROUTE_PAYMENT_URL:http://localhost:3005}
+              predicates:
+                - Path=/api/v1/payments/**,/api/v1/payments,/api/v1/payment-accounts,/api/v1/admin/payments/**,/api/v1/admin/payments,/api/v1/admin/payment-accounts/**,/api/v1/admin/payment-accounts,/api/v1/admin/payment-methods,/api/v1/admin/promotions/**,/api/v1/admin/promotions,/api/v1/loyalty/**,/api/v1/loyalty
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+            - id: notification-service
+              uri: ${ROUTE_NOTIFICATION_URL:http://localhost:3006}
+              predicates:
+                - Path=/api/v1/notifications/**,/api/v1/notifications,/api/v1/admin/notifications/**,/api/v1/admin/notifications
+              filters:
+                - RemoveResponseHeader=Access-Control-Allow-Origin
+                - RemoveResponseHeader=Access-Control-Allow-Credentials
+                - RemoveResponseHeader=Access-Control-Expose-Headers
+
+app:
+  # Corta los tokens de sesiones cerradas (logout, cuenta inhabilitada o desactivada) preguntando a
+  # security-service; la respuesta se guarda cache-ttl por token, que es lo que puede tardar en
+  # notarse un cierre. Si security no contesta en timeout, la petición sigue (SessionCheckFilter).
+  session-check:
+    enabled: ${SESSION_CHECK_ENABLED:true}
+    cache-ttl: ${SESSION_CHECK_CACHE_TTL:30s}
+    timeout: ${SESSION_CHECK_TIMEOUT:3s}
+  cors:
+    # mismos orígenes que los servicios; 8081 es la app móvil corriendo en el navegador (Expo web)
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081}
+
+server:
+  port: ${GATEWAY_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+info:
+  service: api-gateway
