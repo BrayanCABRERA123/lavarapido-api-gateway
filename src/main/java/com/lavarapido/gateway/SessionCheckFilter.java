@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -33,6 +34,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * respuesta unos segundos por token, para no hacer una llamada extra en cada petición. Si
  * security-service no contesta, deja pasar: el servicio de atrás igual verifica la firma, y una caída
  * de security no tumba el resto de la API.
+ *
+ * SEC-01: se revisa toda petición que traiga Authorization, sin mirar el esquema ni la ruta. Los
+ * servicios aceptan "bearer" o "BEARER" igual que "Bearer"; si aquí solo se revisara "Bearer ", un
+ * token cerrado pasaría cambiando una letra.
  */
 class SessionCheckFilter extends OncePerRequestFilter {
 
@@ -69,11 +74,10 @@ class SessionCheckFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        // sin Authorization (o vacío) los servicios tratan la llamada como anónima: no hay sesión que revisar
         return "OPTIONS".equals(request.getMethod())
-                || !path.startsWith("/api/")
                 || (path.startsWith(AUTH_PATHS) && !path.equals(LOGOUT_PATH))
-                || authorization == null || !authorization.startsWith(BEARER);
+                || !StringUtils.hasText(request.getHeader(HttpHeaders.AUTHORIZATION));
     }
 
     @Override
@@ -81,9 +85,15 @@ class SessionCheckFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (LOGOUT_PATH.equals(request.getRequestURI())) {
-            // el token deja de servir ya, no cuando venza lo guardado
-            cache.remove(sha256(authorization));
-            chain.doFilter(request, response);
+            // el token deja de servir ya, no cuando venza lo guardado. Se borra también después: una
+            // petición que llegue mientras security cierra la sesión podría guardar "abierta" otra vez
+            String key = cacheKey(authorization);
+            cache.remove(key);
+            try {
+                chain.doFilter(request, response);
+            } finally {
+                cache.remove(key);
+            }
             return;
         }
         Rejection closed = check(authorization, request.getHeader("X-Correlation-Id"));
@@ -101,7 +111,7 @@ class SessionCheckFilter extends OncePerRequestFilter {
 
     /** @return el 401 que hay que devolver, o null si la petición puede seguir */
     private Rejection check(String authorization, String correlationId) {
-        String key = sha256(authorization);
+        String key = cacheKey(authorization);
         Instant now = clock.instant();
         Checked cached = cache.get(key);
         if (cached != null && cached.until().isAfter(now)) {
@@ -147,6 +157,15 @@ class SessionCheckFilter extends OncePerRequestFilter {
             }
         }
         cache.put(key, checked);
+    }
+
+    /**
+     * La llave es solo el token, sin el esquema ni sus mayúsculas: "bearer x", "Bearer x" y "BEARER x"
+     * comparten la respuesta guardada, y el logout con cualquiera de ellos la borra para todas.
+     */
+    private static String cacheKey(String authorization) {
+        boolean bearer = authorization.regionMatches(true, 0, BEARER, 0, BEARER.length());
+        return sha256(bearer ? authorization.substring(BEARER.length()) : authorization);
     }
 
     // el token no se guarda en memoria tal cual, solo su huella
