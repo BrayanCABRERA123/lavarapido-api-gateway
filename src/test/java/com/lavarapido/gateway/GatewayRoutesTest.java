@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Cada ruta llega al servicio correcto. Los 4 servicios se reemplazan por servidores HTTP falsos
@@ -33,6 +34,7 @@ class GatewayRoutesTest {
 
     private static final Map<String, HttpServer> SERVERS = new ConcurrentHashMap<>();
     private static final Map<String, String> LAST_AUTHORIZATION = new ConcurrentHashMap<>();
+    private static final Map<String, String> LAST_FORWARDED_FOR = new ConcurrentHashMap<>();
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
 
@@ -55,6 +57,10 @@ class GatewayRoutesTest {
             String auth = exchange.getRequestHeaders().getFirst("Authorization");
             if (auth != null) {
                 LAST_AUTHORIZATION.put(name, auth);
+            }
+            String forwardedFor = exchange.getRequestHeaders().getFirst("X-Forwarded-For");
+            if (forwardedFor != null) {
+                LAST_FORWARDED_FOR.put(name, forwardedFor);
             }
             // como los servicios reales: devuelven su propio CORS (el gateway debe quitarlo)
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "http://localhost:4200");
@@ -122,6 +128,20 @@ class GatewayRoutesTest {
         assertEquals("booking /api/v1/bookings/availability?date=2026-10-05&vehicleTypeId=1&serviceIds=1",
                 response.body());
         assertEquals("Bearer token-de-prueba", LAST_AUTHORIZATION.get("booking"));
+    }
+
+    @Test
+    void theServicesReceiveTheClientIpResolvedByTheGateway() throws Exception {
+        // SEC-11: la prueba llega desde localhost, que es de confianza como Caddy: su X-Forwarded-For vale
+        CLIENT.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/users/me"))
+                        .header("X-Forwarded-For", "203.0.113.7").GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals("203.0.113.7", LAST_FORWARDED_FOR.get("security"));
+
+        // sin el encabezado, la IP de la conexión (127.0.0.1 o ::1 según cómo resuelva localhost)
+        get("/api/v1/vehicle-types");
+        assertTrue(List.of("127.0.0.1", "0:0:0:0:0:0:0:1").contains(LAST_FORWARDED_FOR.get("customer")),
+                LAST_FORWARDED_FOR.get("customer"));
     }
 
     @Test
