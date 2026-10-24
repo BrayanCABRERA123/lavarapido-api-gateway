@@ -43,3 +43,29 @@ jobs:
           name: surefire-reports
           path: target/surefire-reports/
           retention-days: 7
+
+  # CD: cuando un cambio entra a main (PR aprobado) y el CI pasa, pide el despliegue en Azure al
+  # workflow "Desplegar en Azure" de lavarapido-infra. Necesita el secreto DEPLOY_DISPATCH_TOKEN
+  # (token fine-grained con acceso solo a lavarapido-infra y permiso Actions: Read and write).
+  deploy:
+    name: Pedir despliegue
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Avisar a lavarapido-infra
+        env:
+          TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+          SOURCE: ${{ github.repository }}@${{ github.sha }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Falta el secreto DEPLOY_DISPATCH_TOKEN (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/BrayanCABRERA123/lavarapido-infra/actions/workflows/deploy.yml/dispatches \
+            -d "{\"ref\":\"main\",\"inputs\":{\"automatic\":\"true\",\"source\":\"$SOURCE\"}}"
+          echo "Despliegue pedido: lavarapido-infra → Actions → Desplegar en Azure"
