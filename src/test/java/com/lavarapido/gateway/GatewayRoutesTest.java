@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Cada ruta llega al servicio correcto. Los 4 servicios se reemplazan por servidores HTTP falsos
@@ -33,6 +34,7 @@ class GatewayRoutesTest {
 
     private static final Map<String, HttpServer> SERVERS = new ConcurrentHashMap<>();
     private static final Map<String, String> LAST_AUTHORIZATION = new ConcurrentHashMap<>();
+    private static final Map<String, String> LAST_FORWARDED_FOR = new ConcurrentHashMap<>();
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
 
@@ -55,6 +57,10 @@ class GatewayRoutesTest {
             String auth = exchange.getRequestHeaders().getFirst("Authorization");
             if (auth != null) {
                 LAST_AUTHORIZATION.put(name, auth);
+            }
+            String forwardedFor = exchange.getRequestHeaders().getFirst("X-Forwarded-For");
+            if (forwardedFor != null) {
+                LAST_FORWARDED_FOR.put(name, forwardedFor);
             }
             // como los servicios reales: devuelven su propio CORS (el gateway debe quitarlo)
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "http://localhost:4200");
@@ -96,7 +102,6 @@ class GatewayRoutesTest {
             "/api/v1/admin/bookings, booking",
             "/api/v1/admin/bays/1, booking",
             "/api/v1/admin/establishment, booking",
-            "/api/v1/operator/bookings, booking",
             "/api/v1/notifications/unread-count, notification",
             "/api/v1/admin/notifications, notification",
             "/api/v1/payments/me, payment",
@@ -107,7 +112,6 @@ class GatewayRoutesTest {
             "/api/v1/public/inspections/abc123, operations",
             "/api/v1/operators/available, operations",
             "/api/v1/operator/services, operations",
-            "/api/v1/operator/bookings/5, booking",
             "/api/v1/ratings/me, operations"
     })
     void routesEachPathToItsService(String path, String service) throws Exception {
@@ -127,8 +131,29 @@ class GatewayRoutesTest {
     }
 
     @Test
+    void theServicesReceiveTheClientIpResolvedByTheGateway() throws Exception {
+        // SEC-11: la prueba llega desde localhost, que es de confianza como Caddy: su X-Forwarded-For vale
+        CLIENT.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/users/me"))
+                        .header("X-Forwarded-For", "203.0.113.7").GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals("203.0.113.7", LAST_FORWARDED_FOR.get("security"));
+
+        // sin el encabezado, la IP de la conexión (127.0.0.1 o ::1 según cómo resuelva localhost)
+        get("/api/v1/vehicle-types");
+        assertTrue(List.of("127.0.0.1", "0:0:0:0:0:0:0:1").contains(LAST_FORWARDED_FOR.get("customer")),
+                LAST_FORWARDED_FOR.get("customer"));
+    }
+
+    @Test
     void internalRoutesAreNotExposed() throws Exception {
         assertEquals(404, get("/internal/v1/users/1/contact").statusCode());
+    }
+
+    @Test
+    void operatorBookingRoutesAreNotExposed() throws Exception {
+        // E-01: solo operations-service las usa, por la red interna y con la llave interna
+        assertEquals(404, get("/api/v1/operator/bookings").statusCode());
+        assertEquals(404, get("/api/v1/operator/bookings/5").statusCode());
     }
 
     @Test
