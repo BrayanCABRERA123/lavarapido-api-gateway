@@ -12,6 +12,13 @@ spring:
       - optional:file:../lavarapido-infra/.env[.properties]
       - optional:file:.env[.properties]
 
+  # SEC-16: cuánto espera el gateway a cada servicio. Sin tope, un servicio colgado dejaba la petición y
+  # su hilo esperando para siempre. La lectura cuenta hasta que llega la respuesta (incluye subir fotos).
+  http:
+    clients:
+      connect-timeout: ${ROUTE_CONNECT_TIMEOUT:5s}
+      read-timeout: ${ROUTE_READ_TIMEOUT:60s}
+
   cloud:
     gateway:
       server:
