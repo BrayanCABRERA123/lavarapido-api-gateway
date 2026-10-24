@@ -24,6 +24,12 @@ class AuthRateLimitConfig {
         return new ClientIpResolver(trustedProxies);
     }
 
+    /** SEC-11: los servicios reciben esa IP en X-Forwarded-For (security la guarda en sesiones y códigos). */
+    @Bean
+    ClientIpHeadersFilter clientIpHeadersFilter(ClientIpResolver clientIp) {
+        return new ClientIpHeadersFilter(clientIp);
+    }
+
     @Bean
     @ConditionalOnProperty(name = "app.rate-limit.auth.enabled", havingValue = "true", matchIfMissing = true)
     FilterRegistrationBean<AuthRateLimitFilter> authRateLimitFilter(ClientIpResolver clientIp,
