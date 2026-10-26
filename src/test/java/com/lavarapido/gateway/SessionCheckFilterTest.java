@@ -26,7 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * El gateway corta los tokens de sesiones cerradas. security-service se reemplaza por un servidor
- * falso: "abierta" responde 204, "cerrada" 401 y "caido" 500.
+ * falso: "abierta" responde 204, "cerrada" 401 y "caido" 500. Como el real, acepta el esquema
+ * Bearer sin distinguir mayúsculas y a cualquier otro esquema le responde 401.
  */
 class SessionCheckFilterTest {
 
@@ -43,9 +44,10 @@ class SessionCheckFilterTest {
         security.createContext("/api/v1/auth/session", exchange -> {
             calls.incrementAndGet();
             String auth = exchange.getRequestHeaders().getFirst("Authorization");
-            if ("Bearer abierta".equals(auth)) {
+            String token = auth != null && auth.regionMatches(true, 0, "Bearer ", 0, 7) ? auth.substring(7) : null;
+            if ("abierta".equals(token)) {
                 exchange.sendResponseHeaders(204, -1);
-            } else if ("Bearer cerrada".equals(auth)) {
+            } else if (token == null || "cerrada".equals(token)) {
                 byte[] body = PROBLEM.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/problem+json");
                 exchange.getResponseHeaders().add("WWW-Authenticate", "Bearer");
@@ -70,9 +72,13 @@ class SessionCheckFilterTest {
     }
 
     private MockFilterChain call(String path, String token) throws Exception {
+        return callWithAuthorization(path, token == null ? null : "Bearer " + token);
+    }
+
+    private MockFilterChain callWithAuthorization(String path, String authorization) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
-        if (token != null) {
-            request.addHeader("Authorization", "Bearer " + token);
+        if (authorization != null) {
+            request.addHeader("Authorization", authorization);
         }
         MockFilterChain chain = new MockFilterChain();
         filter.doFilter(request, new MockHttpServletResponse(), chain);
@@ -101,6 +107,37 @@ class SessionCheckFilterTest {
     }
 
     @Test
+    void aClosedSessionIsCutWhateverTheCaseOfTheScheme() throws Exception {
+        // SEC-01: los servicios aceptan "bearer" y "BEARER"; antes esos pasaban sin revisar
+        assertNull(callWithAuthorization("/api/v1/payments", "bearer cerrada").getRequest());
+        assertNull(callWithAuthorization("/api/v1/bookings", "BEARER cerrada").getRequest());
+        assertNotNull(callWithAuthorization("/api/v1/bookings", "bEaReR abierta").getRequest());
+        // "BEARER cerrada" usó la respuesta guardada de "bearer cerrada": es el mismo token
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    void anyOtherAuthorizationIsCheckedToo() throws Exception {
+        // security responde 401 a lo que no es un token: no se deja pasar algo que no se pudo revisar
+        assertNull(callWithAuthorization("/api/v1/bookings", "Basic YWRtaW46YWRtaW4=").getRequest());
+        assertNull(callWithAuthorization("/api/v1/bookings", "Token cerrada").getRequest());
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    void pathsOutsideApiAreCheckedToo() throws Exception {
+        // la ruta no decide si se revisa: "//api/..." o cualquier otra con token también pasa por security
+        assertNull(call("//api/v1/bookings", "cerrada").getRequest());
+        assertNull(call("/otra/ruta", "cerrada").getRequest());
+    }
+
+    @Test
+    void anEmptyAuthorizationIsTreatedAsNoToken() throws Exception {
+        assertNotNull(callWithAuthorization("/api/v1/catalog/services", "   ").getRequest());
+        assertEquals(0, calls.get());
+    }
+
+    @Test
     void theAnswerIsRememberedForAWhilePerToken() throws Exception {
         call("/api/v1/bookings", "abierta");
         call("/api/v1/vehicles", "abierta");
@@ -118,6 +155,30 @@ class SessionCheckFilterTest {
         call("/api/v1/bookings", "abierta");
 
         assertEquals(2, calls.get());
+    }
+
+    @Test
+    void theCachedAnswerIsPerTokenWhateverTheScheme() throws Exception {
+        callWithAuthorization("/api/v1/bookings", "Bearer abierta");
+        callWithAuthorization("/api/v1/bookings", "bearer abierta");
+        callWithAuthorization("/api/v1/bookings", "BEARER abierta");
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void aLogoutWithAnySchemeForgetsEveryVariantOfTheToken() throws Exception {
+        // SEC-01: si la llave fuera el encabezado completo, "bearer" seguiría guardado hasta 30 s
+        for (String logoutScheme : new String[]{"bearer", "Bearer", "BEARER"}) {
+            callWithAuthorization("/api/v1/bookings", "Bearer abierta");
+            callWithAuthorization("/api/v1/bookings", "bearer abierta");
+            callWithAuthorization("/api/v1/bookings", "BEARER abierta");
+            int beforeLogout = calls.get();
+            assertNotNull(callWithAuthorization("/api/v1/auth/logout", logoutScheme + " abierta").getRequest());
+
+            callWithAuthorization("/api/v1/bookings", "bearer abierta");
+            assertEquals(beforeLogout + 1, calls.get(), "después del logout con " + logoutScheme + " se vuelve a preguntar");
+        }
     }
 
     @Test

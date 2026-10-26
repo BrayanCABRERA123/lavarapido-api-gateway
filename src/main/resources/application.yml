@@ -12,6 +12,13 @@ spring:
       - optional:file:../lavarapido-infra/.env[.properties]
       - optional:file:.env[.properties]
 
+  # SEC-16: cuánto espera el gateway a cada servicio. Sin tope, un servicio colgado dejaba la petición y
+  # su hilo esperando para siempre. La lectura cuenta hasta que llega la respuesta (incluye subir fotos).
+  http:
+    clients:
+      connect-timeout: ${ROUTE_CONNECT_TIMEOUT:5s}
+      read-timeout: ${ROUTE_READ_TIMEOUT:60s}
+
   cloud:
     gateway:
       server:
@@ -43,7 +50,7 @@ spring:
             - id: booking-service
               uri: ${ROUTE_BOOKING_URL:http://localhost:3003}
               predicates:
-                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/admin/establishment,/api/v1/operator/bookings/**,/api/v1/operator/bookings
+                - Path=/api/v1/catalog/**,/api/v1/schedule/**,/api/v1/establishment,/api/v1/bookings/**,/api/v1/bookings,/api/v1/admin/bookings/**,/api/v1/admin/bookings,/api/v1/admin/catalog/**,/api/v1/admin/schedule/**,/api/v1/admin/bays/**,/api/v1/admin/bays,/api/v1/admin/establishment
               filters:
                 - RemoveResponseHeader=Access-Control-Allow-Origin
                 - RemoveResponseHeader=Access-Control-Allow-Credentials
@@ -84,6 +91,17 @@ app:
     enabled: ${SESSION_CHECK_ENABLED:true}
     cache-ttl: ${SESSION_CHECK_CACHE_TTL:30s}
     timeout: ${SESSION_CHECK_TIMEOUT:3s}
+  # SEC-04: tope de peticiones por IP a /api/v1/auth/** (login, registro, recuperar contraseña). Cada
+  # IP puede hacer `requests` seguidas y se le recargan en `window`; después responde 429 RATE_LIMITED.
+  rate-limit:
+    auth:
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+      requests: ${AUTH_RATE_LIMIT_REQUESTS:60}
+      window: ${AUTH_RATE_LIMIT_WINDOW:1m}
+  # Redes (CIDR) de los proxies de confianza: solo si la conexión viene de una de ellas se cree su
+  # X-Forwarded-For para saber la IP del cliente. Por defecto loopback y las redes privadas de Docker,
+  # donde vive Caddy; Caddy escribe ese encabezado y descarta el que mande el cliente.
+  trusted-proxies: ${TRUSTED_PROXIES:127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
   cors:
     # mismos orígenes que los servicios; 8081 es la app móvil corriendo en el navegador (Expo web)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081}
