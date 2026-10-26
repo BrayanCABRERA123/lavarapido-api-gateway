@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +50,24 @@ final class ClientIpResolver {
             }
             int mask = (0xFF << (8 - remainingBits)) & 0xFF;
             return (bytes[fullBytes] & mask) == (address[fullBytes] & mask);
+        }
+
+        // el record compara arreglos por referencia: se comparan por contenido
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Network network
+                    && prefixBits == network.prefixBits
+                    && Arrays.equals(address, network.address);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Arrays.hashCode(address) + prefixBits;
+        }
+
+        @Override
+        public String toString() {
+            return "Network[address=" + Arrays.toString(address) + ", prefixBits=" + prefixBits + "]";
         }
     }
 

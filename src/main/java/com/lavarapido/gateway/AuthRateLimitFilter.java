@@ -62,8 +62,9 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // la ruta ya decodificada y sin "//" ni "..": "/api/v1/%61uth/login" también es el login
         String path = StringUtils.cleanPath(UrlPathHelper.defaultInstance.getPathWithinApplication(request));
-        return "OPTIONS".equals(request.getMethod())
-                || !(path.equals(AUTH_PREFIX) || path.startsWith(AUTH_PREFIX + "/"));
+        // cleanPath devuelve null si no hay ruta: sin ruta no es una petición a /auth
+        boolean isAuthPath = path != null && (path.equals(AUTH_PREFIX) || path.startsWith(AUTH_PREFIX + "/"));
+        return "OPTIONS".equals(request.getMethod()) || !isAuthPath;
     }
 
     @Override
